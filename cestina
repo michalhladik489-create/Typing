@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Typing Boss Fight: Znič Jedličkovou!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: white;
+            overflow: hidden; /* Prevent scrolling during gameplay */
+            transition: background-color 0.1s;
+        }
+
+        /* Screen flash when taking damage */
+        .damage-flash {
+            background-color: #450a0a !important;
+        }
+
+        /* Boss hit flash */
+        .boss-hit {
+            transform: scale(0.9);
+            filter: brightness(2) drop-shadow(0 0 20px red);
+            transition: all 0.1s;
+        }
+
+        /* Blinking cursor effect for the current letter */
+        .current-char {
+            border-bottom: 4px solid white;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { border-color: white; }
+            50% { border-color: transparent; }
+        }
+
+        /* Nové vizuální efekty: Neon a Shake */
+        .neon-text-red {
+            text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #ef4444, 0 0 30px #ef4444, 0 0 40px #ef4444;
+        }
+        .neon-text-blue {
+            text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #3b82f6, 0 0 30px #3b82f6, 0 0 40px #3b82f6;
+        }
+
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+        .shake-effect {
+            animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        /* Glowing text for correctly typed letters */
+        .typed-correct {
+            color: #4ade80; /* emerald-400 */
+            text-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+        }
+
+        .untyped {
+            color: #64748b; /* slate-500 */
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col justify-between" id="game-body">
+
+    <!-- Boss Area (Top) -->
+    <header class="w-full max-w-4xl mx-auto pt-8 px-4 flex flex-col items-center">
+        <div class="flex items-center gap-6 mb-4" id="boss-container">
+            <img src="https://www.spse.cz/atachments/zamestnanci/img/Jedlickova.png?1344608893" alt="Boss Avatar" class="w-24 h-24 rounded-full border-4 border-red-500 shadow-[0_0_25px_rgba(239,68,68,0.8)]" id="boss-avatar">
+            <h1 class="text-5xl font-black text-white neon-text-red tracking-wider uppercase">
+                Jedličková
+            </h1>
+        </div>
+        
+        <div class="w-full bg-gray-900 border-2 border-red-900 rounded-full h-8 relative overflow-hidden shadow-[0_0_20px_rgba(239,68,68,0.5)]">
+            <div id="boss-hp-bar" class="bg-gradient-to-r from-red-800 via-red-600 to-red-500 h-full transition-all duration-300" style="width: 100%;"></div>
+            <div class="absolute inset-0 flex items-center justify-center font-bold text-white text-sm tracking-widest drop-shadow-md">
+                BOSS HP: <span id="boss-hp-text" class="ml-2">100 / 100</span>
+            </div>
+        </div>
+
+        <!-- Timer Bar -->
+        <div class="w-full mt-4 bg-gray-900 border border-blue-900 rounded-full h-3 relative overflow-hidden shadow-[0_0_15px_rgba(59,130,246,0.3)]">
+            <div id="timer-bar" class="bg-gradient-to-r from-blue-600 to-cyan-400 h-full transition-all duration-100 ease-linear" style="width: 100%;"></div>
+        </div>
+    </header>
+
+    <!-- Typing Area (Middle) -->
+    <main class="flex-grow flex flex-col justify-center items-center px-8 w-full max-w-5xl mx-auto">
+        
+        <!-- Action text prompt -->
+        <div class="mb-6 text-xl text-gray-400 font-bold tracking-widest uppercase text-center animate-pulse" id="instruction">
+            Piš co nejrychleji a bez chyb!
+        </div>
+
+        <!-- The Sentence Container -->
+        <div id="text-display" class="text-3xl md:text-5xl font-bold text-center leading-relaxed tracking-wide select-none break-words w-full">
+            <!-- Letters injected via JS -->
+        </div>
+
+        <!-- Floating damage numbers container -->
+        <div id="floating-damage" class="h-10 mt-4 text-red-500 font-black text-2xl drop-shadow-md"></div>
+    </main>
+
+    <!-- Player Stats & HP (Bottom) -->
+    <footer class="w-full max-w-4xl mx-auto pb-8 px-4 flex flex-col gap-4">
+        
+        <!-- Stats -->
+        <div class="flex justify-between items-end text-sm md:text-base font-bold text-gray-300 uppercase">
+            <div class="flex items-center gap-4">
+                <img src="https://placehold.co/60x60/1e293b/4ade80?text=TY" alt="Player Avatar" class="w-16 h-16 rounded-full border-2 border-emerald-500 shadow-[0_0_15px_rgba(74,222,128,0.5)] hidden md:block">
+                <div class="flex flex-col">
+                    <span class="text-gray-500">Úroveň</span>
+                    <span id="level-display" class="text-3xl text-blue-400 neon-text-blue">1</span>
+                </div>
+            </div>
+            <div class="flex flex-col items-center">
+                <span class="text-gray-500">Chyby</span>
+                <span id="errors-display" class="text-2xl text-red-400">0</span>
+            </div>
+            <div class="flex flex-col text-right">
+                <span class="text-gray-500">Zničeno Vět</span>
+                <span class="text-2xl text-purple-400"><span id="words-typed">0</span></span>
+            </div>
+        </div>
+
+        <!-- Player HP Bar -->
+        <div class="w-full bg-gray-900 border-2 border-emerald-900 rounded-full h-8 relative overflow-hidden shadow-[0_0_20px_rgba(74,222,128,0.4)]">
+            <div id="player-hp-bar" class="bg-gradient-to-r from-emerald-700 via-emerald-500 to-emerald-400 h-full transition-all duration-300" style="width: 100%;"></div>
+            <div class="absolute inset-0 flex items-center justify-center font-bold text-white text-sm tracking-widest drop-shadow-md">
+                TVOJE HP: <span id="player-hp-text" class="ml-2">100 / 100</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Death Screen Overlay -->
+    <div id="death-screen" class="fixed inset-0 bg-red-950 flex flex-col justify-center items-center z-50 hidden">
+        <h1 class="text-5xl md:text-7xl font-black text-red-500 mb-6 drop-shadow-[0_0_20px_rgba(239,68,68,1)] text-center">
+            ZEMŘEL JSI
+        </h1>
+        <p class="text-xl md:text-3xl text-gray-300 mb-12 font-bold text-center">
+            Jedličková tě zničila!
+        </p>
+        <button id="restart-btn" class="px-8 py-4 bg-red-600 hover:bg-red-500 text-white font-bold text-2xl rounded shadow-[0_0_15px_rgba(239,68,68,0.8)] transition-all transform hover:scale-105 active:scale-95">
+            ZAČÍT ZNOVU (Od Levelu 1)
+        </button>
+    </div>
+
+    <!-- Victory Level Screen Overlay -->
+    <div id="level-screen" class="fixed inset-0 bg-blue-900/90 flex flex-col justify-center items-center z-50 hidden">
+        <h1 class="text-5xl md:text-7xl font-black text-blue-400 mb-6 drop-shadow-[0_0_20px_rgba(96,165,250,1)] text-center">
+            LEVEL DOKONČEN
+        </h1>
+        <p class="text-xl md:text-3xl text-gray-200 mb-12 font-bold text-center">
+            Jedličková utrpěla těžké rány. +30 HP obnova.
+        </p>
+        <button id="next-level-btn" class="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold text-2xl rounded shadow-[0_0_15px_rgba(59,130,246,0.8)] transition-all transform hover:scale-105 active:scale-95">
+            POKRAČOVAT V BOJI
+        </button>
+    </div>
+
+    <script>
+        // --- GAME DATA & VOCABULARY ---
+        const sentenceLevels = {
+            1: [
+                "Kočka spí na okně.", 
+                "Auto jede velmi rychle.", 
+                "Venku prší a fouká vítr.", 
+                "Mám rád dobré jídlo.", 
+                "Dnes je opravdu krásný den."
+            ],
+            2: [
+                "Včera jsme šli do kina na nový akční film.", 
+                "Na stole leží stará kniha, kterou musím přečíst.", 
+                "Rychlá hnědá liška přeskočila líného psa.", 
+                "Voda v jezeře byla včera překvapivě velmi studená.",
+                "Učit se nové věci je vždy dobrý nápad."
+            ],
+            3: [
+                "Programování je fascinující činnost, která vyžaduje logické myšlení a velkou trpělivost.", 
+                "Během letních prázdnin plánujeme navštívit několik zajímavých historických památek.", 
+                "Nejdůležitější vlastností úspěšného člověka je jeho schopnost nevzdávat se při nezdaru.",
+                "Vesmír je nekonečný a plný tajemství, která čekají na své objevení."
+            ],
+            4: [
+                "Zprostředkovatel nezpochybnitelně předpokládal, že nejneobhospodařovávatelnější pozemky budou zítra prodány.", 
+                "Při implementaci asynchronních funkcí v JavaScriptu musíme dbát na správné zpracování chyb a výjimek.",
+                "Předpokládá se, že zítřejší shromáždění přinese nezpochybnitelné důkazy o zmrtvýchvstání starých legend."
+            ]
+        };
+
+        const GOAL_SENTENCES_PER_LEVEL = 5;
+        const PLAYER_MAX_HP = 100;
+        const DAMAGE_PER_SENTENCE = 20;
+
+        // --- STATE VARIABLES ---
+        let gameState = {
+            status: 'playing', // playing, dead, levelComplete
+            level: 1,
+            playerHp: PLAYER_MAX_HP,
+            bossMaxHp: GOAL_SENTENCES_PER_LEVEL * DAMAGE_PER_SENTENCE,
+            bossHp: GOAL_SENTENCES_PER_LEVEL * DAMAGE_PER_SENTENCE,
+            sentencesTypedInLevel: 0,
+            totalErrors: 0,
+            consecutiveErrors: 0,
+            
+            currentSentence: "",
+            currentIndex: 0,
+            
+            // Timer data
+            timeRemaining: 0,
+            maxTime: 0,
+            timerInterval: null
+        };
+
+        // --- DOM ELEMENTS ---
+        const bodyEl = document.getElementById('game-body');
+        const textDisplay = document.getElementById('text-display');
+        const bossHpBar = document.getElementById('boss-hp-bar');
+        const bossHpText = document.getElementById('boss-hp-text');
+        const timerBar = document.getElementById('timer-bar');
+        const playerHpBar = document.getElementById('player-hp-bar');
+        const playerHpText = document.getElementById('player-hp-text');
+        const levelDisplay = document.getElementById('level-display');
+        const errorsDisplay = document.getElementById('errors-display');
+        const wordsTypedDisplay = document.getElementById('words-typed');
+        const deathScreen = document.getElementById('death-screen');
+        const levelScreen = document.getElementById('level-screen');
+        const floatingDamage = document.getElementById('floating-damage');
+        const bossContainer = document.getElementById('boss-container');
+        const restartBtn = document.getElementById('restart-btn');
+        const nextLevelBtn = document.getElementById('next-level-btn');
+
+        // --- INITIALIZATION ---
+        function initGame() {
+            clearInterval(gameState.timerInterval);
+            gameState = {
+                status: 'playing',
+                level: 1,
+                playerHp: PLAYER_MAX_HP,
+                bossMaxHp: GOAL_SENTENCES_PER_LEVEL * DAMAGE_PER_SENTENCE,
+                bossHp: GOAL_SENTENCES_PER_LEVEL * DAMAGE_PER_SENTENCE,
+                sentencesTypedInLevel: 0,
+                totalErrors: 0,
+                consecutiveErrors: 0,
+                currentSentence: "",
+                currentIndex: 0,
+                timeRemaining: 0,
+                maxTime: 0,
+                timerInterval: null
+            };
+            deathScreen.classList.add('hidden');
+            levelScreen.classList.add('hidden');
+            updateUI();
+            generateNextSentence();
+        }
+
+        // --- TIMER LOGIC ---
+        function startTimer(seconds) {
+            clearInterval(gameState.timerInterval);
+            gameState.maxTime = seconds;
+            gameState.timeRemaining = seconds;
+            
+            gameState.timerInterval = setInterval(() => {
+                if (gameState.status !== 'playing') {
+                    clearInterval(gameState.timerInterval);
+                    return;
+                }
+                
+                gameState.timeRemaining -= 0.05; // 50ms updates for smoother bar
+                
+                const percent = Math.max(0, (gameState.timeRemaining / gameState.maxTime) * 100);
+                timerBar.style.width = `${percent}%`;
+                
+                if (percent < 25) {
+                    timerBar.className = "bg-gradient-to-r from-red-600 to-red-400 h-full transition-all duration-75 ease-linear";
+                } else {
+                    timerBar.className = "bg-gradient-to-r from-blue-600 to-cyan-400 h-full transition-all duration-75 ease-linear";
+                }
+
+                if (gameState.timeRemaining <= 0) {
+                    clearInterval(gameState.timerInterval);
+                    timeOutDamage();
+                }
+            }, 50);
+        }
+
+        function timeOutDamage() {
+            gameState.playerHp -= 15;
+            showFloatingDamage(`-15 HP (ČAS!)`);
+            bodyEl.classList.add('damage-flash');
+            setTimeout(() => bodyEl.classList.remove('damage-flash'), 150);
+            
+            if (gameState.playerHp <= 0) {
+                updateUI();
+                triggerGameOver();
+            } else {
+                generateNextSentence();
+            }
+        }
+
+        // --- GENERATION ---
+        function getSentencesForCurrentLevel() {
+            let lvl = gameState.level > 4 ? 4 : gameState.level;
+            return sentenceLevels[lvl];
+        }
+
+        function generateNextSentence() {
+            const pool = getSentencesForCurrentLevel();
+            const randomSentence = pool[Math.floor(Math.random() * pool.length)];
+            
+            gameState.currentSentence = randomSentence;
+            gameState.currentIndex = 0;
+            gameState.consecutiveErrors = 0;
+            
+            // Calculate time: Base on length. Less time per level.
+            let calculatedTime = (randomSentence.length / 3.5) - (gameState.level * 0.8);
+            calculatedTime = Math.max(4, calculatedTime); // Min 4 seconds
+            
+            startTimer(calculatedTime);
+            renderSentence();
+            updateUI();
+        }
+
+        // --- RENDERING ---
+        function renderSentence() {
+            textDisplay.innerHTML = ''; 
+            for (let i = 0; i < gameState.currentSentence.length; i++) {
+                const charSpan = document.createElement('span');
+                charSpan.innerText = gameState.currentSentence[i];
+                
+                if (i < gameState.currentIndex) {
+                    charSpan.className = 'typed-correct';
+                } else if (i === gameState.currentIndex) {
+                    charSpan.className = 'current-char untyped';
+                } else {
+                    charSpan.className = 'untyped';
+                }
+                
+                textDisplay.appendChild(charSpan);
+            }
+        }
+
+        function updateUI() {
+            // Update Text Values
+            bossHpText.innerText = `${gameState.bossHp} / ${gameState.bossMaxHp}`;
+            playerHpText.innerText = `${Math.max(0, gameState.playerHp)} / ${PLAYER_MAX_HP}`;
+            levelDisplay.innerText = gameState.level;
+            errorsDisplay.innerText = gameState.totalErrors;
+            wordsTypedDisplay.innerText = `${gameState.sentencesTypedInLevel} / ${GOAL_SENTENCES_PER_LEVEL}`;
+
+            // Update Bars
+            const bossPercent = Math.max(0, (gameState.bossHp / gameState.bossMaxHp) * 100);
+            bossHpBar.style.width = `${bossPercent}%`;
+            
+            const playerPercent = Math.max(0, (gameState.playerHp / PLAYER_MAX_HP) * 100);
+            playerHpBar.style.width = `${playerPercent}%`;
+
+            if (playerPercent < 30) {
+                playerHpBar.className = "bg-gradient-to-r from-red-600 to-red-400 h-full transition-all duration-300";
+            } else if (playerPercent < 60) {
+                playerHpBar.className = "bg-gradient-to-r from-yellow-500 to-yellow-400 h-full transition-all duration-300";
+            } else {
+                playerHpBar.className = "bg-gradient-to-r from-emerald-600 to-emerald-400 h-full transition-all duration-300";
+            }
+        }
+
+        // --- GAMEPLAY LOGIC ---
+        function damagePlayer() {
+            gameState.totalErrors++;
+            gameState.consecutiveErrors++;
+            
+            let damage = 2; // Zvýšené poškození za chyby
+            if (gameState.consecutiveErrors >= 5) {
+                damage = 10;
+            } else if (gameState.consecutiveErrors >= 3) {
+                damage = 5;
+            }
+
+            gameState.playerHp -= damage;
+
+            showFloatingDamage(`-${damage} HP`);
+            bodyEl.classList.add('damage-flash');
+            setTimeout(() => {
+                bodyEl.classList.remove('damage-flash');
+            }, 100);
+
+            if (gameState.playerHp <= 0) {
+                triggerGameOver();
+            }
+            
+            updateUI();
+        }
+
+        function showFloatingDamage(text) {
+            floatingDamage.innerText = text;
+            floatingDamage.style.opacity = '1';
+            floatingDamage.style.transform = 'translateY(0px)';
+            
+            setTimeout(() => {
+                floatingDamage.style.transition = 'all 0.5s ease-out';
+                floatingDamage.style.opacity = '0';
+                floatingDamage.style.transform = 'translateY(-20px)';
+            }, 50);
+        }
+
+        function triggerShake() {
+            bodyEl.classList.remove('shake-effect');
+            void bodyEl.offsetWidth; // trigger reflow
+            bodyEl.classList.add('shake-effect');
+        }
+
+        function damageBoss() {
+            clearInterval(gameState.timerInterval); // Stop timer
+            triggerShake(); // Epické zatřesení
+
+            gameState.bossHp -= DAMAGE_PER_SENTENCE;
+            if (gameState.bossHp < 0) gameState.bossHp = 0;
+            
+            gameState.sentencesTypedInLevel++;
+
+            bossContainer.classList.add('boss-hit');
+            setTimeout(() => {
+                bossContainer.classList.remove('boss-hit');
+            }, 150);
+
+            if (gameState.bossHp <= 0) {
+                triggerLevelComplete();
+            }
+            updateUI();
+        }
+
+        function triggerGameOver() {
+            clearInterval(gameState.timerInterval);
+            gameState.status = 'dead';
+            deathScreen.classList.remove('hidden');
+        }
+
+        function triggerLevelComplete() {
+            gameState.status = 'levelComplete';
+            levelScreen.classList.remove('hidden');
+            
+            gameState.playerHp += 40;
+            if (gameState.playerHp > PLAYER_MAX_HP) gameState.playerHp = PLAYER_MAX_HP;
+        }
+
+        function prepareNextLevel() {
+            gameState.level++;
+            gameState.bossMaxHp = GOAL_SENTENCES_PER_LEVEL * DAMAGE_PER_SENTENCE;
+            gameState.bossHp = GOAL_SENTENCES_PER_LEVEL * DAMAGE_PER_SENTENCE;
+            gameState.sentencesTypedInLevel = 0;
+            gameState.status = 'playing';
+            
+            levelScreen.classList.add('hidden');
+            updateUI();
+            generateNextSentence();
+        }
+
+        // --- EVENT LISTENERS ---
+        window.addEventListener('keydown', (e) => {
+            if (gameState.status !== 'playing') return;
+            if (e.key.length > 1 || e.ctrlKey || e.altKey || e.metaKey) return;
+            if (e.key === " ") e.preventDefault();
+
+            const expectedChar = gameState.currentSentence[gameState.currentIndex];
+            const typedChar = e.key;
+
+            if (typedChar === expectedChar) {
+                gameState.currentIndex++;
+                gameState.consecutiveErrors = 0; 
+                
+                if (gameState.currentIndex >= gameState.currentSentence.length) {
+                    damageBoss();
+                    if (gameState.status === 'playing') {
+                        // Malá pauza před novou větou pro efekt
+                        setTimeout(generateNextSentence, 300);
+                    }
+                } else {
+                    renderSentence();
+                }
+            } else {
+                damagePlayer();
+            }
+        });
+
+        restartBtn.addEventListener('click', initGame);
+        nextLevelBtn.addEventListener('click', prepareNextLevel);
+
+        window.onload = initGame;
+
+    </script>
+</body>
+</html>
