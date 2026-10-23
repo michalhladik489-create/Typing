@@ -5,46 +5,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Typing Boss Fight: Znič Jedličkovou!</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Cinzel:wght@700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --boss-red: #ef4444;
+            --player-green: #4ade80;
+            --ui-blue: #3b82f6;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #0f172a;
+            background-color: #09090b; /* Very dark zinc */
             color: white;
-            overflow: hidden; /* Prevent scrolling during gameplay */
+            overflow: hidden; 
             transition: background-color 0.1s;
         }
 
-        /* Screen flash when taking damage */
-        .damage-flash {
-            background-color: #450a0a !important;
+        h1, h2, .boss-title {
+            font-family: 'Cinzel', serif;
         }
 
-        /* Boss hit flash */
-        .boss-hit {
-            transform: scale(0.9);
-            filter: brightness(2) drop-shadow(0 0 20px red);
-            transition: all 0.1s;
-        }
+        /* Neon text effects */
+        .neon-text-red { text-shadow: 0 0 5px #fff, 0 0 15px var(--boss-red), 0 0 30px var(--boss-red); }
+        .neon-text-blue { text-shadow: 0 0 5px #fff, 0 0 10px var(--ui-blue), 0 0 20px var(--ui-blue); }
+        .neon-text-green { text-shadow: 0 0 5px #fff, 0 0 10px var(--player-green), 0 0 20px var(--player-green); }
 
-        /* Blinking cursor effect for the current letter */
-        .current-char {
-            border-bottom: 4px solid white;
-            animation: blink 1s infinite;
-        }
+        /* Shadows */
+        .neon-box-red { box-shadow: 0 0 20px rgba(239, 68, 68, 0.4); }
+        .neon-box-green { box-shadow: 0 0 20px rgba(74, 222, 128, 0.4); }
+        .neon-box-blue { box-shadow: 0 0 15px rgba(59, 130, 246, 0.4); border: 1px solid var(--ui-blue); }
 
-        @keyframes blink {
-            0%, 100% { border-color: white; }
-            50% { border-color: transparent; }
-        }
-
-        /* Nové vizuální efekty: Neon a Shake */
-        .neon-text-red {
-            text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #ef4444, 0 0 30px #ef4444, 0 0 40px #ef4444;
-        }
-        .neon-text-blue {
-            text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #3b82f6, 0 0 30px #3b82f6, 0 0 40px #3b82f6;
-        }
+        /* Screen effects */
+        .damage-flash { background-color: #450a0a !important; }
+        .boss-hit-flash { filter: brightness(2) drop-shadow(0 0 30px red); transform: scale(0.95); transition: all 0.1s; }
+        .success-flash { background-color: #064e3b !important; } /* Dark emerald */
 
         @keyframes shake {
             0% { transform: translate(1px, 1px) rotate(0deg); }
@@ -59,447 +53,530 @@
             90% { transform: translate(1px, 2px) rotate(0deg); }
             100% { transform: translate(1px, -2px) rotate(-1deg); }
         }
-        .shake-effect {
-            animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
-        }
+        .shake-effect { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
 
-        /* Glowing text for correctly typed letters */
+        /* Typing Game Styles */
         .typed-correct {
-            color: #4ade80; /* emerald-400 */
-            text-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+            color: var(--player-green);
+            text-shadow: 0 0 10px rgba(74, 222, 128, 0.6);
+        }
+        .typed-wrong {
+            color: var(--boss-red);
+            text-decoration: underline;
+            text-decoration-color: var(--boss-red);
+        }
+        .untyped { color: #52525b; /* zinc-600 */ }
+        .current-char {
+            border-bottom: 3px solid white;
+            color: white;
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0%, 100% { border-color: white; }
+            50% { border-color: transparent; }
         }
 
-        .untyped {
-            color: #64748b; /* slate-500 */
+        /* Quiz Buttons */
+        .quiz-btn {
+            transition: all 0.2s ease;
+            background: linear-gradient(145deg, #18181b, #27272a);
         }
+        .quiz-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.6);
+            border-color: var(--ui-blue);
+        }
+        .quiz-btn:active { transform: translateY(1px); }
+
+        .hidden { display: none !important; }
     </style>
 </head>
-<body class="h-screen w-screen flex flex-col justify-between" id="game-body">
+<body id="game-body" class="w-screen h-screen flex flex-col items-center justify-center">
 
-    <!-- Boss Area (Top) -->
-    <header class="w-full max-w-4xl mx-auto pt-8 px-4 flex flex-col items-center">
-        <div class="flex items-center gap-6 mb-4" id="boss-container">
-            <img src="Jedlickova.png" alt="Boss Avatar" class="w-24 h-24 rounded-full border-4 border-red-500 shadow-[0_0_25px_rgba(239,68,68,0.8)]" id="boss-avatar">
-            <h1 class="text-5xl font-black text-white neon-text-red tracking-wider uppercase">
-                Jedličková
-            </h1>
-        </div>
-        
-        <div class="w-full bg-gray-900 border-2 border-red-900 rounded-full h-8 relative overflow-hidden shadow-[0_0_20px_rgba(239,68,68,0.5)]">
-            <div id="boss-hp-bar" class="bg-gradient-to-r from-red-800 via-red-600 to-red-500 h-full transition-all duration-300" style="width: 100%;"></div>
-            <div class="absolute inset-0 flex items-center justify-center font-bold text-white text-sm tracking-widest drop-shadow-md">
-                BOSS HP: <span id="boss-hp-text" class="ml-2">100 / 100</span>
+    <!-- MAIN MENU -->
+    <div id="main-menu" class="absolute inset-0 flex flex-col items-center justify-center z-50 bg-[#09090b]">
+        <div class="text-center max-w-2xl px-6">
+            <h1 class="text-6xl md:text-8xl font-black mb-4 neon-text-red uppercase">Jedličková</h1>
+            <h2 class="text-2xl md:text-3xl font-bold mb-8 text-zinc-400 uppercase tracking-widest">Konečný test z literatury</h2>
+            <div class="mb-10 text-zinc-500 text-lg md:text-xl space-y-2">
+                <p><strong>Level 1-5:</strong> Přežij psaní 3 vět naráz.</p>
+                <p><strong>Level 6-12:</strong> Znalosti 19./20. století.</p>
+                <p><strong>Level 13-15:</strong> Analýza literárních žánrů.</p>
+                <p class="text-red-400 mt-4">Pozor: Čas běží. Chyby bolí.</p>
             </div>
+            <button id="btn-start" class="px-10 py-5 bg-red-700 hover:bg-red-600 text-white font-bold text-3xl rounded-xl uppercase tracking-widest neon-box-red transition-transform transform hover:scale-105">
+                Začít zkoušku
+            </button>
         </div>
-
-        <!-- Timer Bar -->
-        <div class="w-full mt-4 bg-gray-900 border border-blue-900 rounded-full h-3 relative overflow-hidden shadow-[0_0_15px_rgba(59,130,246,0.3)]">
-            <div id="timer-bar" class="bg-gradient-to-r from-blue-600 to-cyan-400 h-full transition-all duration-100 ease-linear" style="width: 100%;"></div>
-        </div>
-    </header>
-
-    <!-- Typing Area (Middle) -->
-    <main class="flex-grow flex flex-col justify-center items-center px-8 w-full max-w-5xl mx-auto">
-        
-        <!-- Action text prompt -->
-        <div class="mb-6 text-xl text-gray-400 font-bold tracking-widest uppercase text-center animate-pulse" id="instruction">
-            Piš co nejrychleji a bez chyb!
-        </div>
-
-        <!-- The Sentence Container -->
-        <div id="text-display" class="text-3xl md:text-5xl font-bold text-center leading-relaxed tracking-wide select-none break-words w-full">
-            <!-- Letters injected via JS -->
-        </div>
-
-        <!-- Floating damage numbers container -->
-        <div id="floating-damage" class="h-10 mt-4 text-red-500 font-black text-2xl drop-shadow-md"></div>
-    </main>
-
-    <!-- Player Stats & HP (Bottom) -->
-    <footer class="w-full max-w-4xl mx-auto pb-8 px-4 flex flex-col gap-4">
-        
-        <!-- Stats -->
-        <div class="flex justify-between items-end text-sm md:text-base font-bold text-gray-300 uppercase">
-            <div class="flex items-center gap-4">
-                <img src="https://placehold.co/60x60/1e293b/4ade80?text=TY" alt="Player Avatar" class="w-16 h-16 rounded-full border-2 border-emerald-500 shadow-[0_0_15px_rgba(74,222,128,0.5)] hidden md:block">
-                <div class="flex flex-col">
-                    <span class="text-gray-500">Úroveň</span>
-                    <span id="level-display" class="text-3xl text-blue-400 neon-text-blue">1</span>
-                </div>
-            </div>
-            <div class="flex flex-col items-center">
-                <span class="text-gray-500">Chyby</span>
-                <span id="errors-display" class="text-2xl text-red-400">0</span>
-            </div>
-            <div class="flex flex-col text-right">
-                <span class="text-gray-500">Zničeno Vět</span>
-                <span class="text-2xl text-purple-400"><span id="words-typed">0</span></span>
-            </div>
-        </div>
-
-        <!-- Player HP Bar -->
-        <div class="w-full bg-gray-900 border-2 border-emerald-900 rounded-full h-8 relative overflow-hidden shadow-[0_0_20px_rgba(74,222,128,0.4)]">
-            <div id="player-hp-bar" class="bg-gradient-to-r from-emerald-700 via-emerald-500 to-emerald-400 h-full transition-all duration-300" style="width: 100%;"></div>
-            <div class="absolute inset-0 flex items-center justify-center font-bold text-white text-sm tracking-widest drop-shadow-md">
-                TVOJE HP: <span id="player-hp-text" class="ml-2">100 / 100</span>
-            </div>
-        </div>
-    </footer>
-
-    <!-- Death Screen Overlay -->
-    <div id="death-screen" class="fixed inset-0 bg-red-950 flex flex-col justify-center items-center z-50 hidden">
-        <h1 class="text-5xl md:text-7xl font-black text-red-500 mb-6 drop-shadow-[0_0_20px_rgba(239,68,68,1)] text-center">
-            ZEMŘEL JSI
-        </h1>
-        <p class="text-xl md:text-3xl text-gray-300 mb-12 font-bold text-center">
-            Jedličková tě zničila!
-        </p>
-        <button id="restart-btn" class="px-8 py-4 bg-red-600 hover:bg-red-500 text-white font-bold text-2xl rounded shadow-[0_0_15px_rgba(239,68,68,0.8)] transition-all transform hover:scale-105 active:scale-95">
-            ZAČÍT ZNOVU (Od Levelu 1)
-        </button>
     </div>
 
-    <!-- Victory Level Screen Overlay -->
-    <div id="level-screen" class="fixed inset-0 bg-blue-900/90 flex flex-col justify-center items-center z-50 hidden">
-        <h1 class="text-5xl md:text-7xl font-black text-blue-400 mb-6 drop-shadow-[0_0_20px_rgba(96,165,250,1)] text-center">
-            LEVEL DOKONČEN
-        </h1>
-        <p class="text-xl md:text-3xl text-gray-200 mb-12 font-bold text-center">
-            Jedličková utrpěla těžké rány. +30 HP obnova.
-        </p>
-        <button id="next-level-btn" class="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold text-2xl rounded shadow-[0_0_15px_rgba(59,130,246,0.8)] transition-all transform hover:scale-105 active:scale-95">
-            POKRAČOVAT V BOJI
+    <!-- GAME UI -->
+    <div id="game-container" class="hidden w-full h-full flex flex-col justify-between max-w-6xl mx-auto p-4">
+        
+        <!-- HEADER (BOSS) -->
+        <header class="flex flex-col items-center w-full pt-4">
+            <div id="boss-avatar-wrapper" class="flex items-center gap-6 mb-3 transition-transform">
+                <img src="https://placehold.co/120x120/7f1d1d/fca5a5?text=BOSS" alt="Boss" class="w-20 h-20 md:w-24 md:h-24 rounded-full border-4 border-red-500 neon-box-red object-cover">
+                <div class="flex flex-col">
+                    <span class="text-xl md:text-2xl font-bold text-red-500 tracking-widest uppercase mb-1">Level <span id="ui-level">1</span>/15</span>
+                    <h1 class="text-4xl md:text-5xl font-black boss-title neon-text-red">Učitelka Jedličková</h1>
+                </div>
+            </div>
+            
+            <!-- Boss HP Bar -->
+            <div class="w-full max-w-3xl bg-zinc-900 border-2 border-red-900 rounded-full h-8 relative overflow-hidden">
+                <div id="boss-hp-bar" class="bg-gradient-to-r from-red-800 to-red-500 h-full transition-all duration-500 w-full"></div>
+                <div class="absolute inset-0 flex items-center justify-center font-bold text-white text-sm tracking-widest drop-shadow-md">
+                    BOSS HP: <span id="boss-hp-text" class="ml-2">15 / 15</span>
+                </div>
+            </div>
+
+            <!-- Timer Bar -->
+            <div class="w-full max-w-3xl mt-3 bg-zinc-900 border border-blue-900 rounded-full h-2 relative overflow-hidden">
+                <div id="timer-bar" class="bg-blue-500 h-full transition-all duration-75 w-full shadow-[0_0_10px_#3b82f6]"></div>
+            </div>
+        </header>
+
+        <!-- MAIN CONTENT (TYPING OR QUIZ) -->
+        <main class="flex-grow flex flex-col items-center justify-center w-full relative px-4">
+            <!-- Floating Damage Text -->
+            <div id="floating-text" class="absolute top-10 text-3xl font-black opacity-0 pointer-events-none transition-all duration-500 drop-shadow-lg z-10"></div>
+            
+            <div id="instruction-text" class="text-xl md:text-2xl font-bold text-zinc-400 mb-6 uppercase tracking-widest text-center animate-pulse"></div>
+
+            <!-- Typing Container -->
+            <div id="typing-container" class="hidden w-full max-w-4xl text-2xl md:text-4xl font-bold leading-relaxed tracking-wide text-justify select-none bg-zinc-900/50 p-6 md:p-10 rounded-2xl border border-zinc-800">
+                <!-- Spans inserted via JS -->
+            </div>
+
+            <!-- Quiz Container -->
+            <div id="quiz-container" class="hidden w-full max-w-4xl flex flex-col items-center">
+                <p id="quiz-question" class="text-2xl md:text-4xl font-bold mb-8 text-center leading-tight bg-zinc-900/50 p-6 rounded-2xl border border-zinc-800 w-full"></p>
+                <div id="quiz-options" class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                    <button class="quiz-btn border border-zinc-700 text-xl md:text-2xl p-6 rounded-xl text-left font-semibold text-zinc-300" onclick="handleQuizAnswer(0)"></button>
+                    <button class="quiz-btn border border-zinc-700 text-xl md:text-2xl p-6 rounded-xl text-left font-semibold text-zinc-300" onclick="handleQuizAnswer(1)"></button>
+                    <button class="quiz-btn border border-zinc-700 text-xl md:text-2xl p-6 rounded-xl text-left font-semibold text-zinc-300" onclick="handleQuizAnswer(2)"></button>
+                    <button class="quiz-btn border border-zinc-700 text-xl md:text-2xl p-6 rounded-xl text-left font-semibold text-zinc-300" onclick="handleQuizAnswer(3)"></button>
+                </div>
+            </div>
+        </main>
+
+        <!-- FOOTER (PLAYER) -->
+        <footer class="w-full max-w-3xl mx-auto pb-6 flex flex-col gap-3">
+            <div class="flex justify-between items-end px-2">
+                <div class="flex items-center gap-4">
+                    <img src="https://placehold.co/120x120/166534/86efac?text=TY" alt="Player" class="w-16 h-16 rounded-full border-2 border-green-500 neon-box-green hidden sm:block">
+                    <div>
+                        <span class="text-sm font-bold text-zinc-500 uppercase tracking-wider block">Student</span>
+                        <span class="text-2xl font-black neon-text-green">TVOJE ZDRAVÍ</span>
+                    </div>
+                </div>
+            </div>
+            <div class="w-full bg-zinc-900 border-2 border-green-900 rounded-full h-8 relative overflow-hidden">
+                <div id="player-hp-bar" class="bg-gradient-to-r from-green-700 to-green-500 h-full transition-all duration-300 w-full"></div>
+                <div class="absolute inset-0 flex items-center justify-center font-bold text-white text-sm tracking-widest drop-shadow-md">
+                    HP: <span id="player-hp-text" class="ml-2">100 / 100</span>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- SCREENS (DEATH / VICTORY) -->
+    <div id="overlay-screen" class="hidden absolute inset-0 flex flex-col items-center justify-center z-50 bg-black/90 px-6 text-center">
+        <h1 id="overlay-title" class="text-6xl md:text-8xl font-black mb-6 uppercase tracking-widest"></h1>
+        <p id="overlay-desc" class="text-2xl md:text-3xl text-zinc-400 mb-10 max-w-2xl"></p>
+        <button id="btn-restart" class="px-8 py-4 bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-2xl rounded border border-zinc-600 transition-all uppercase tracking-wider">
+            Zkusit Znovu
         </button>
     </div>
 
     <script>
-        // --- GAME DATA & VOCABULARY ---
-        const sentenceLevels = {
-            1: [
-                "Kočka spí na okně.", 
-                "Auto jede velmi rychle.", 
-                "Venku prší a fouká vítr.", 
-                "Mám rád dobré jídlo.", 
-                "Dnes je opravdu krásný den."
-            ],
-            2: [
-                "Včera jsme šli do kina na nový akční film.", 
-                "Na stole leží stará kniha, kterou musím přečíst.", 
-                "Rychlá hnědá liška přeskočila líného psa.", 
-                "Voda v jezeře byla včera překvapivě velmi studená.",
-                "Učit se nové věci je vždy dobrý nápad."
-            ],
-            3: [
-                "Programování je fascinující činnost, která vyžaduje logické myšlení a velkou trpělivost.", 
-                "Během letních prázdnin plánujeme navštívit několik zajímavých historických památek.", 
-                "Nejdůležitější vlastností úspěšného člověka je jeho schopnost nevzdávat se při nezdaru.",
-                "Vesmír je nekonečný a plný tajemství, která čekají na své objevení."
-            ],
-            4: [
-                "Zprostředkovatel nezpochybnitelně předpokládal, že nejneobhospodařovávatelnější pozemky budou zítra prodány.", 
-                "Při implementaci asynchronních funkcí v JavaScriptu musíme dbát na správné zpracování chyb a výjimek.",
-                "Předpokládá se, že zítřejší shromáždění přinese nezpochybnitelné důkazy o zmrtvýchvstání starých legend."
-            ]
-        };
+        // --- GAME DATA ---
+        const LEVELS_DATA = [
+            // TYPING LEVELS (1-5)
+            { type: 'typing', time: 50, text: "Slunce svítí a obloha je modrá. Venku běhá malý pes. Dnes je opravdu krásný den." },
+            { type: 'typing', time: 45, text: "Rychlá hnědá liška přeskočila líného psa. Voda v jezeře byla velmi studená. Učit se nové věci je vždy dobrý nápad." },
+            { type: 'typing', time: 45, text: "Během letních prázdnin plánujeme navštívit několik zajímavých historických památek. Cesta vlakem ubíhala překvapivě rychle. Na nádraží nás čekal strýc." },
+            { type: 'typing', time: 55, text: "Nejdůležitější vlastností úspěšného člověka je jeho schopnost nevzdávat se při nezdaru. Programování vyžaduje logické myšlení a obrovskou trpělivost. Chybami se člověk učí nejlépe." },
+            { type: 'typing', time: 55, text: "Zprostředkovatel nezpochybnitelně předpokládal, že nejneobhospodařovávatelnější pozemky budou prodány. Implementace asynchronních funkcí vyžaduje zpracování výjimek. Tento text prověří tvé schopnosti naplno." },
+            
+            // LITERATURE QUIZ (6-12)
+            { type: 'quiz', time: 20, q: "Kdo napsal sbírku Květy zla a je považován za předchůdce prokletých básníků?", options: ["A) Charles Baudelaire", "B) Paul Verlaine", "C) Arthur Rimbaud", "D) Karel Hynek Mácha"], correct: 0 },
+            { type: 'quiz', time: 20, q: "Jaký literární směr primárně reprezentuje Manifest České moderny (1895)?", options: ["A) Romantismus", "B) Realismus a naturalismus", "C) Symbolismus a individualismus", "D) Osvícenství"], correct: 2 },
+            { type: 'quiz', time: 20, q: "Kdo z následujících autorů NEPATŘÍ mezi tzv. 'prokleté básníky'?", options: ["A) Arthur Rimbaud", "B) Paul Verlaine", "C) Stéphane Mallarmé", "D) Victor Hugo"], correct: 3 },
+            { type: 'quiz', time: 15, q: "Který český dekadentní časopis, založený na konci 19. století, vydával J. Karásek ze Lvovic?", options: ["A) Lumír", "B) Moderní revue", "C) Květy", "D) Ruch"], correct: 1 },
+            { type: 'quiz', time: 15, q: "Kdo je autorem slavné sociální a národnostní sbírky Slezské písně?", options: ["A) Petr Bezruč", "B) Antonín Sova", "C) Otokar Březina", "D) Karel Hlaváček"], correct: 0 },
+            { type: 'quiz', time: 15, q: "Tzv. 'generace buřičů' (F. Gellner, V. Dyk, S. K. Neumann) vstoupila do literatury:", options: ["A) Na počátku 19. století", "B) V polovině 19. století", "C) Na počátku 20. století", "D) Během 2. světové války"], correct: 2 },
+            { type: 'quiz', time: 15, q: "Otokar Březina byl nejvýznamnějším představitelem českého:", options: ["A) Kritického realismu", "B) Symbolismu", "C) Naturalismu", "D) Dadaismu"], correct: 1 },
 
-        const GOAL_SENTENCES_PER_LEVEL = 5;
-        const PLAYER_MAX_HP = 100;
-        const DAMAGE_PER_SENTENCE = 20;
+            // GENRE RECOGNITION (13-15)
+            { type: 'quiz', time: 25, q: "\"Byl pozdní večer – první máj – večerní máj – byl lásky čas. Hrdliččin zval ku lásce hlas...\" Co je to za literární druh a žánr?", options: ["A) Lyricko-epická báseň (Poema)", "B) Epický historický román", "C) Absurdní drama", "D) Cestopis (Próza)"], correct: 0 },
+            { type: 'quiz', time: 25, q: "Text rozsáhlého rozsahu, psaný v próze. Obsahuje mnoho postav, složitý děj a zachycuje osudy rodiny během několika generací.", options: ["A) Lyrická poezie (Sonet)", "B) Drama (Komedie)", "C) Epika (Román)", "D) Epika (Pověst)"], correct: 2 },
+            { type: 'quiz', time: 20, q: "Osoba A: (Vstoupí na balkon) Ach, Romeo! Proč jsi Romeo? Zavrhni otce, zřekni se jména... Do jakého literárního druhu text patří?", options: ["A) Epos", "B) Lyrika", "C) Próza", "D) Drama"], correct: 3 },
+        ];
 
-        // --- STATE VARIABLES ---
-        let gameState = {
-            status: 'playing', // playing, dead, levelComplete
-            level: 1,
-            playerHp: PLAYER_MAX_HP,
-            bossMaxHp: GOAL_SENTENCES_PER_LEVEL * DAMAGE_PER_SENTENCE,
-            bossHp: GOAL_SENTENCES_PER_LEVEL * DAMAGE_PER_SENTENCE,
-            sentencesTypedInLevel: 0,
-            totalErrors: 0,
+        const MAX_PLAYER_HP = 100;
+        const MAX_LEVELS = LEVELS_DATA.length;
+        const BOSS_MAX_HP = MAX_LEVELS; // 1 HP per level
+        const QUIZ_DAMAGE = 20;
+        const TIMEOUT_DAMAGE = 15;
+
+        // --- STATE ---
+        let state = {
+            currentLevelIndex: 0,
+            playerHp: MAX_PLAYER_HP,
+            bossHp: BOSS_MAX_HP,
+            status: 'menu', // menu, playing, dead, victory
+            
+            // Typing specific
+            typingText: "",
+            typingIndex: 0,
             consecutiveErrors: 0,
-            
-            currentSentence: "",
-            currentIndex: 0,
-            
-            // Timer data
-            timeRemaining: 0,
+
+            // Timer
             maxTime: 0,
+            timeRemaining: 0,
             timerInterval: null
         };
 
         // --- DOM ELEMENTS ---
         const bodyEl = document.getElementById('game-body');
-        const textDisplay = document.getElementById('text-display');
+        const mainMenu = document.getElementById('main-menu');
+        const gameContainer = document.getElementById('game-container');
+        const overlayScreen = document.getElementById('overlay-screen');
+        const overlayTitle = document.getElementById('overlay-title');
+        const overlayDesc = document.getElementById('overlay-desc');
+        
+        const uiLevel = document.getElementById('ui-level');
         const bossHpBar = document.getElementById('boss-hp-bar');
         const bossHpText = document.getElementById('boss-hp-text');
-        const timerBar = document.getElementById('timer-bar');
         const playerHpBar = document.getElementById('player-hp-bar');
         const playerHpText = document.getElementById('player-hp-text');
-        const levelDisplay = document.getElementById('level-display');
-        const errorsDisplay = document.getElementById('errors-display');
-        const wordsTypedDisplay = document.getElementById('words-typed');
-        const deathScreen = document.getElementById('death-screen');
-        const levelScreen = document.getElementById('level-screen');
-        const floatingDamage = document.getElementById('floating-damage');
-        const bossContainer = document.getElementById('boss-container');
-        const restartBtn = document.getElementById('restart-btn');
-        const nextLevelBtn = document.getElementById('next-level-btn');
+        const timerBar = document.getElementById('timer-bar');
+        const bossAvatarWrap = document.getElementById('boss-avatar-wrapper');
+        
+        const typingContainer = document.getElementById('typing-container');
+        const quizContainer = document.getElementById('quiz-container');
+        const instructionText = document.getElementById('instruction-text');
+        const floatingText = document.getElementById('floating-text');
+        const quizQuestion = document.getElementById('quiz-question');
+        const quizBtns = document.querySelectorAll('.quiz-btn');
 
         // --- INITIALIZATION ---
-        function initGame() {
-            clearInterval(gameState.timerInterval);
-            gameState = {
+        document.getElementById('btn-start').addEventListener('click', startGame);
+        document.getElementById('btn-restart').addEventListener('click', () => {
+            overlayScreen.classList.add('hidden');
+            startGame();
+        });
+
+        function startGame() {
+            state = {
+                currentLevelIndex: 0,
+                playerHp: MAX_PLAYER_HP,
+                bossHp: BOSS_MAX_HP,
                 status: 'playing',
-                level: 1,
-                playerHp: PLAYER_MAX_HP,
-                bossMaxHp: GOAL_SENTENCES_PER_LEVEL * DAMAGE_PER_SENTENCE,
-                bossHp: GOAL_SENTENCES_PER_LEVEL * DAMAGE_PER_SENTENCE,
-                sentencesTypedInLevel: 0,
-                totalErrors: 0,
+                typingText: "",
+                typingIndex: 0,
                 consecutiveErrors: 0,
-                currentSentence: "",
-                currentIndex: 0,
-                timeRemaining: 0,
                 maxTime: 0,
+                timeRemaining: 0,
                 timerInterval: null
             };
-            deathScreen.classList.add('hidden');
-            levelScreen.classList.add('hidden');
-            updateUI();
-            generateNextSentence();
+
+            mainMenu.classList.add('hidden');
+            gameContainer.classList.remove('hidden');
+            
+            updateHPUI();
+            loadLevel();
         }
 
-        // --- TIMER LOGIC ---
-        function startTimer(seconds) {
-            clearInterval(gameState.timerInterval);
-            gameState.maxTime = seconds;
-            gameState.timeRemaining = seconds;
+        function loadLevel() {
+            if (state.currentLevelIndex >= MAX_LEVELS) {
+                triggerVictory();
+                return;
+            }
+
+            const levelData = LEVELS_DATA[state.currentLevelIndex];
+            uiLevel.innerText = state.currentLevelIndex + 1;
             
-            gameState.timerInterval = setInterval(() => {
-                if (gameState.status !== 'playing') {
-                    clearInterval(gameState.timerInterval);
-                    return;
-                }
-                
-                gameState.timeRemaining -= 0.05; // 50ms updates for smoother bar
-                
-                const percent = Math.max(0, (gameState.timeRemaining / gameState.maxTime) * 100);
+            // Setup Timer
+            state.maxTime = levelData.time;
+            state.timeRemaining = levelData.time;
+            startTimer();
+
+            // Setup Layout
+            if (levelData.type === 'typing') {
+                setupTypingPhase(levelData);
+            } else if (levelData.type === 'quiz') {
+                setupQuizPhase(levelData);
+            }
+        }
+
+        // --- TIMER ---
+        function startTimer() {
+            clearInterval(state.timerInterval);
+            timerBar.style.width = '100%';
+            timerBar.className = "bg-blue-500 h-full transition-all duration-75 w-full shadow-[0_0_10px_#3b82f6]";
+
+            state.timerInterval = setInterval(() => {
+                if (state.status !== 'playing') return;
+
+                state.timeRemaining -= 0.1;
+                const percent = Math.max(0, (state.timeRemaining / state.maxTime) * 100);
                 timerBar.style.width = `${percent}%`;
-                
+
                 if (percent < 25) {
-                    timerBar.className = "bg-gradient-to-r from-red-600 to-red-400 h-full transition-all duration-75 ease-linear";
-                } else {
-                    timerBar.className = "bg-gradient-to-r from-blue-600 to-cyan-400 h-full transition-all duration-75 ease-linear";
+                    timerBar.classList.replace('bg-blue-500', 'bg-red-500');
+                    timerBar.classList.replace('shadow-[0_0_10px_#3b82f6]', 'shadow-[0_0_10px_#ef4444]');
                 }
 
-                if (gameState.timeRemaining <= 0) {
-                    clearInterval(gameState.timerInterval);
-                    timeOutDamage();
+                if (state.timeRemaining <= 0) {
+                    handleTimeout();
                 }
-            }, 50);
-        }
-
-        function timeOutDamage() {
-            gameState.playerHp -= 15;
-            showFloatingDamage(`-15 HP (ČAS!)`);
-            bodyEl.classList.add('damage-flash');
-            setTimeout(() => bodyEl.classList.remove('damage-flash'), 150);
-            
-            if (gameState.playerHp <= 0) {
-                updateUI();
-                triggerGameOver();
-            } else {
-                generateNextSentence();
-            }
-        }
-
-        // --- GENERATION ---
-        function getSentencesForCurrentLevel() {
-            let lvl = gameState.level > 4 ? 4 : gameState.level;
-            return sentenceLevels[lvl];
-        }
-
-        function generateNextSentence() {
-            const pool = getSentencesForCurrentLevel();
-            const randomSentence = pool[Math.floor(Math.random() * pool.length)];
-            
-            gameState.currentSentence = randomSentence;
-            gameState.currentIndex = 0;
-            gameState.consecutiveErrors = 0;
-            
-            // Calculate time: Base on length. Less time per level.
-            let calculatedTime = (randomSentence.length / 3.5) - (gameState.level * 0.8);
-            calculatedTime = Math.max(4, calculatedTime); // Min 4 seconds
-            
-            startTimer(calculatedTime);
-            renderSentence();
-            updateUI();
-        }
-
-        // --- RENDERING ---
-        function renderSentence() {
-            textDisplay.innerHTML = ''; 
-            for (let i = 0; i < gameState.currentSentence.length; i++) {
-                const charSpan = document.createElement('span');
-                charSpan.innerText = gameState.currentSentence[i];
-                
-                if (i < gameState.currentIndex) {
-                    charSpan.className = 'typed-correct';
-                } else if (i === gameState.currentIndex) {
-                    charSpan.className = 'current-char untyped';
-                } else {
-                    charSpan.className = 'untyped';
-                }
-                
-                textDisplay.appendChild(charSpan);
-            }
-        }
-
-        function updateUI() {
-            // Update Text Values
-            bossHpText.innerText = `${gameState.bossHp} / ${gameState.bossMaxHp}`;
-            playerHpText.innerText = `${Math.max(0, gameState.playerHp)} / ${PLAYER_MAX_HP}`;
-            levelDisplay.innerText = gameState.level;
-            errorsDisplay.innerText = gameState.totalErrors;
-            wordsTypedDisplay.innerText = `${gameState.sentencesTypedInLevel} / ${GOAL_SENTENCES_PER_LEVEL}`;
-
-            // Update Bars
-            const bossPercent = Math.max(0, (gameState.bossHp / gameState.bossMaxHp) * 100);
-            bossHpBar.style.width = `${bossPercent}%`;
-            
-            const playerPercent = Math.max(0, (gameState.playerHp / PLAYER_MAX_HP) * 100);
-            playerHpBar.style.width = `${playerPercent}%`;
-
-            if (playerPercent < 30) {
-                playerHpBar.className = "bg-gradient-to-r from-red-600 to-red-400 h-full transition-all duration-300";
-            } else if (playerPercent < 60) {
-                playerHpBar.className = "bg-gradient-to-r from-yellow-500 to-yellow-400 h-full transition-all duration-300";
-            } else {
-                playerHpBar.className = "bg-gradient-to-r from-emerald-600 to-emerald-400 h-full transition-all duration-300";
-            }
-        }
-
-        // --- GAMEPLAY LOGIC ---
-        function damagePlayer() {
-            gameState.totalErrors++;
-            gameState.consecutiveErrors++;
-            
-            let damage = 2; // Zvýšené poškození za chyby
-            if (gameState.consecutiveErrors >= 5) {
-                damage = 10;
-            } else if (gameState.consecutiveErrors >= 3) {
-                damage = 5;
-            }
-
-            gameState.playerHp -= damage;
-
-            showFloatingDamage(`-${damage} HP`);
-            bodyEl.classList.add('damage-flash');
-            setTimeout(() => {
-                bodyEl.classList.remove('damage-flash');
             }, 100);
-
-            if (gameState.playerHp <= 0) {
-                triggerGameOver();
-            }
-            
-            updateUI();
         }
 
-        function showFloatingDamage(text) {
-            floatingDamage.innerText = text;
-            floatingDamage.style.opacity = '1';
-            floatingDamage.style.transform = 'translateY(0px)';
+        function handleTimeout() {
+            clearInterval(state.timerInterval);
+            damagePlayer(TIMEOUT_DAMAGE, "ČAS VYPRŠEL!");
+            
+            if (state.playerHp > 0) {
+                // Reset current task
+                loadLevel();
+            }
+        }
+
+        // --- TYPING PHASE ---
+        function setupTypingPhase(data) {
+            quizContainer.classList.add('hidden');
+            typingContainer.classList.remove('hidden');
+            instructionText.innerText = "Napiš tyto 3 věty bez chyb!";
+            
+            state.typingText = data.text;
+            state.typingIndex = 0;
+            state.consecutiveErrors = 0;
+            
+            renderTypingText();
+            window.addEventListener('keydown', typingHandler);
+        }
+
+        function renderTypingText() {
+            typingContainer.innerHTML = '';
+            for (let i = 0; i < state.typingText.length; i++) {
+                const span = document.createElement('span');
+                const char = state.typingText[i];
+                
+                // Represent spaces as actual space but with margin if needed, standard space is fine inside span
+                span.innerText = char;
+                
+                if (i < state.typingIndex) {
+                    span.className = 'typed-correct';
+                } else if (i === state.typingIndex) {
+                    // special handling for space on current char to make cursor visible
+                    if (char === ' ') {
+                        span.innerHTML = '&nbsp;';
+                    }
+                    span.className = 'current-char';
+                } else {
+                    span.className = 'untyped';
+                }
+                typingContainer.appendChild(span);
+            }
+        }
+
+        const typingHandler = (e) => {
+            if (state.status !== 'playing' || LEVELS_DATA[state.currentLevelIndex].type !== 'typing') return;
+            
+            // Ignore system keys
+            if (e.key.length > 1 || e.ctrlKey || e.altKey || e.metaKey) return;
+            if (e.key === " ") e.preventDefault(); // stop page scroll
+
+            const expectedChar = state.typingText[state.typingIndex];
+
+            if (e.key === expectedChar) {
+                state.typingIndex++;
+                state.consecutiveErrors = 0;
+                
+                if (state.typingIndex >= state.typingText.length) {
+                    // Level complete
+                    window.removeEventListener('keydown', typingHandler);
+                    completeLevel();
+                } else {
+                    renderTypingText();
+                }
+            } else {
+                handleTypingError();
+            }
+        };
+
+        function handleTypingError() {
+            state.consecutiveErrors++;
+            let dmg = 2;
+            if (state.consecutiveErrors >= 5) dmg = 10;
+            else if (state.consecutiveErrors >= 3) dmg = 5;
+            
+            damagePlayer(dmg, `CHYBA! -${dmg}`);
+        }
+
+        // --- QUIZ PHASE ---
+        function setupQuizPhase(data) {
+            window.removeEventListener('keydown', typingHandler);
+            typingContainer.classList.add('hidden');
+            quizContainer.classList.remove('hidden');
+            
+            if(state.currentLevelIndex >= 12) {
+                instructionText.innerText = "Poznávačka žánrů: Urči druh/žánr z ukázky";
+            } else {
+                instructionText.innerText = "Literární test: Vyber správnou odpověď";
+            }
+
+            quizQuestion.innerText = data.q;
+            
+            for (let i = 0; i < 4; i++) {
+                quizBtns[i].innerText = data.options[i];
+                quizBtns[i].classList.remove('border-green-500', 'border-red-500', 'text-green-400', 'text-red-400');
+                quizBtns[i].disabled = false;
+            }
+        }
+
+        window.handleQuizAnswer = function(selectedIndex) {
+            if (state.status !== 'playing') return;
+            const data = LEVELS_DATA[state.currentLevelIndex];
+            
+            // Disable buttons immediately
+            quizBtns.forEach(btn => btn.disabled = true);
+            clearInterval(state.timerInterval);
+
+            if (selectedIndex === data.correct) {
+                // Correct
+                quizBtns[selectedIndex].classList.add('border-green-500', 'text-green-400');
+                triggerScreenFlash('success-flash');
+                setTimeout(completeLevel, 800);
+            } else {
+                // Wrong
+                quizBtns[selectedIndex].classList.add('border-red-500', 'text-red-400');
+                quizBtns[data.correct].classList.add('border-green-500', 'text-green-400');
+                
+                damagePlayer(QUIZ_DAMAGE, "ŠPATNĚ!");
+                if (state.playerHp > 0) {
+                    setTimeout(loadLevel, 1500); // Reload same level to retry
+                }
+            }
+        };
+
+        // --- MECHANICS & EFFECTS ---
+        function completeLevel() {
+            clearInterval(state.timerInterval);
+            damageBoss();
+            
+            if (state.status !== 'playing') return; // Might be victory
+
+            state.currentLevelIndex++;
+            
+            // Small delay for effect before next level
+            setTimeout(loadLevel, 1000);
+        }
+
+        function damageBoss() {
+            state.bossHp--;
+            updateHPUI();
+            
+            showFloatingText("ZÁSAH!", "text-blue-400");
+            
+            bossAvatarWrap.classList.add('boss-hit-flash');
+            triggerShake();
             
             setTimeout(() => {
-                floatingDamage.style.transition = 'all 0.5s ease-out';
-                floatingDamage.style.opacity = '0';
-                floatingDamage.style.transform = 'translateY(-20px)';
-            }, 50);
+                bossAvatarWrap.classList.remove('boss-hit-flash');
+            }, 150);
+
+            if (state.bossHp <= 0) {
+                triggerVictory();
+            }
+        }
+
+        function damagePlayer(amount, msg) {
+            state.playerHp -= amount;
+            if (state.playerHp < 0) state.playerHp = 0;
+            updateHPUI();
+            
+            showFloatingText(msg, "text-red-500");
+            triggerScreenFlash('damage-flash');
+            
+            if (state.playerHp <= 0) {
+                triggerGameOver();
+            }
+        }
+
+        function updateHPUI() {
+            // Boss
+            bossHpText.innerText = `${Math.max(0, state.bossHp)} / ${BOSS_MAX_HP}`;
+            const bPct = (state.bossHp / BOSS_MAX_HP) * 100;
+            bossHpBar.style.width = `${bPct}%`;
+
+            // Player
+            playerHpText.innerText = `${Math.max(0, state.playerHp)} / ${MAX_PLAYER_HP}`;
+            const pPct = (state.playerHp / MAX_PLAYER_HP) * 100;
+            playerHpBar.style.width = `${pPct}%`;
+
+            if (pPct < 30) {
+                playerHpBar.className = "bg-gradient-to-r from-red-700 to-red-500 h-full transition-all duration-300 w-full";
+            } else if (pPct < 60) {
+                playerHpBar.className = "bg-gradient-to-r from-yellow-600 to-yellow-400 h-full transition-all duration-300 w-full";
+            } else {
+                playerHpBar.className = "bg-gradient-to-r from-green-700 to-green-500 h-full transition-all duration-300 w-full";
+            }
+        }
+
+        function showFloatingText(msg, colorClass) {
+            floatingText.innerText = msg;
+            floatingText.className = `absolute top-20 text-4xl md:text-6xl font-black pointer-events-none transition-all duration-500 drop-shadow-[0_0_15px_rgba(255,255,255,0.5)] z-10 ${colorClass}`;
+            floatingText.style.opacity = '1';
+            floatingText.style.transform = 'translateY(0) scale(1.2)';
+            
+            setTimeout(() => {
+                floatingText.style.opacity = '0';
+                floatingText.style.transform = 'translateY(-40px) scale(1)';
+            }, 600);
+        }
+
+        function triggerScreenFlash(className) {
+            bodyEl.classList.add(className);
+            setTimeout(() => bodyEl.classList.remove(className), 150);
         }
 
         function triggerShake() {
             bodyEl.classList.remove('shake-effect');
-            void bodyEl.offsetWidth; // trigger reflow
+            void bodyEl.offsetWidth; // Reflow
             bodyEl.classList.add('shake-effect');
         }
 
-        function damageBoss() {
-            clearInterval(gameState.timerInterval); // Stop timer
-            triggerShake(); // Epické zatřesení
-
-            gameState.bossHp -= DAMAGE_PER_SENTENCE;
-            if (gameState.bossHp < 0) gameState.bossHp = 0;
-            
-            gameState.sentencesTypedInLevel++;
-
-            bossContainer.classList.add('boss-hit');
-            setTimeout(() => {
-                bossContainer.classList.remove('boss-hit');
-            }, 150);
-
-            if (gameState.bossHp <= 0) {
-                triggerLevelComplete();
-            }
-            updateUI();
-        }
-
+        // --- END GAME SCREENS ---
         function triggerGameOver() {
-            clearInterval(gameState.timerInterval);
-            gameState.status = 'dead';
-            deathScreen.classList.remove('hidden');
-        }
-
-        function triggerLevelComplete() {
-            gameState.status = 'levelComplete';
-            levelScreen.classList.remove('hidden');
+            clearInterval(state.timerInterval);
+            window.removeEventListener('keydown', typingHandler);
+            state.status = 'dead';
             
-            gameState.playerHp += 40;
-            if (gameState.playerHp > PLAYER_MAX_HP) gameState.playerHp = PLAYER_MAX_HP;
-        }
-
-        function prepareNextLevel() {
-            gameState.level++;
-            gameState.bossMaxHp = GOAL_SENTENCES_PER_LEVEL * DAMAGE_PER_SENTENCE;
-            gameState.bossHp = GOAL_SENTENCES_PER_LEVEL * DAMAGE_PER_SENTENCE;
-            gameState.sentencesTypedInLevel = 0;
-            gameState.status = 'playing';
+            overlayTitle.innerText = "ZEMŘEL JSI";
+            overlayTitle.className = "text-6xl md:text-8xl font-black mb-6 uppercase tracking-widest text-red-500 neon-text-red";
+            overlayDesc.innerText = `Jedličková tě zničila v ${state.currentLevelIndex + 1}. levelu. Tvé znalosti byly nedostatečné.`;
             
-            levelScreen.classList.add('hidden');
-            updateUI();
-            generateNextSentence();
+            gameContainer.classList.add('hidden');
+            overlayScreen.classList.remove('hidden');
         }
 
-        // --- EVENT LISTENERS ---
-        window.addEventListener('keydown', (e) => {
-            if (gameState.status !== 'playing') return;
-            if (e.key.length > 1 || e.ctrlKey || e.altKey || e.metaKey) return;
-            if (e.key === " ") e.preventDefault();
-
-            const expectedChar = gameState.currentSentence[gameState.currentIndex];
-            const typedChar = e.key;
-
-            if (typedChar === expectedChar) {
-                gameState.currentIndex++;
-                gameState.consecutiveErrors = 0; 
-                
-                if (gameState.currentIndex >= gameState.currentSentence.length) {
-                    damageBoss();
-                    if (gameState.status === 'playing') {
-                        // Malá pauza před novou větou pro efekt
-                        setTimeout(generateNextSentence, 300);
-                    }
-                } else {
-                    renderSentence();
-                }
-            } else {
-                damagePlayer();
-            }
-        });
-
-        restartBtn.addEventListener('click', initGame);
-        nextLevelBtn.addEventListener('click', prepareNextLevel);
-
-        window.onload = initGame;
+        function triggerVictory() {
+            clearInterval(state.timerInterval);
+            window.removeEventListener('keydown', typingHandler);
+            state.status = 'victory';
+            
+            overlayTitle.innerText = "ZKOUŠKA SLOŽENA";
+            overlayTitle.className = "text-6xl md:text-8xl font-black mb-6 uppercase tracking-widest text-blue-400 neon-text-blue";
+            overlayDesc.innerText = "Porazil jsi Jedličkovou! Ovládáš psaní, historii literatury i žánry. Jsi mistr slova.";
+            
+            gameContainer.classList.add('hidden');
+            overlayScreen.classList.remove('hidden');
+        }
 
     </script>
 </body>
